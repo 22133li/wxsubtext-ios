@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Enabled</key><true/>
+	<key>APIKey</key><string>sk-填你的key</string>
+	<key>BaseURL</key><string>https://api.deepseek.com/v1/chat/completions</string>
+	<key>Model</key><string>deepseek-chat</string>
+	<key>RelationDefault</key><string>亲密关系（伴侣）</string>
+	<key>Desensitize</key><true/>
+	<key>ContextSize</key><integer>5</integer>
+	<key>CollapseToTop1</key><true/>
+	<key>OnlyLatest</key><true/>
+	<key>MaxCallsPerHour</key><integer>60</integer>
+	<key>TimeoutMs</key><integer>30000</integer>
+	<key>AnalyzeAllContacts</key><false/>
+	<key>EnabledTalkers</key>
+	<array>
+		<string>对方的微信备注名</string>
+	</array>
+</dict>
+</plist>
