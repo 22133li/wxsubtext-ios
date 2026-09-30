@@ -44,11 +44,17 @@ jobs:
           set -euo pipefail
           deb=(packages/*.deb)
           test ${#deb[@]} -eq 1
+          echo "== deb =="
+          ls -la packages/
           echo "== control =="
-          dpkg-deb -f "${deb[0]}" Package Version Architecture
-          echo "== file list =="
-          dpkg-deb -c "${deb[0]}"
-          test "$(dpkg-deb -f "${deb[0]}" Architecture)" = "iphoneos-arm64e"
+          deb_abs="$PWD/${deb[0]}"
+          tmpd=$(mktemp -d)
+          ( cd "$tmpd" && ar x "$deb_abs" && tar -xf control.tar.* ./control )
+          grep -E '^(Package|Version|Architecture):' "$tmpd/control"
+          test "$(awk -F': ' '/^Architecture:/{print $2}' "$tmpd/control")" = "iphoneos-arm64e"
+          echo "== data file list =="
+          ( cd "$tmpd" && tar -tf data.tar.* )
+          rm -rf "$tmpd"
 
       - name: Record checksum
         shell: bash
