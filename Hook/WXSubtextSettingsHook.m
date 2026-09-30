@@ -132,6 +132,21 @@ static UITableView *findTableView(UIView *root) {
     return nil;
 }
 
+// 收集 view 子树里所有 UILabel 的文本（微信设置页用自定义 cell，cell.textLabel 为空）
+static void collectLabelTexts(UIView *v, NSMutableArray *out) {
+    if ([v isKindOfClass:[UILabel class]]) {
+        NSString *t = [(UILabel *)v text];
+        t = [t stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (t.length) [out addObject:t];
+    }
+    for (UIView *s in v.subviews) collectLabelTexts(s, out);
+}
+
+static char kRetryKey;
+
+// cell 可能延迟加载：失败时最多延迟重试 2 次
++ (void)retryLater:(UIViewController *)vc tableView:(UITableView *)tv;
+
 + (void)tryInjectSettingsEntry:(UIViewController *)vc {
     @try {
         if (!vc.view || !vc.navigationController) return;
@@ -142,23 +157,30 @@ static UITableView *findTableView(UIView *root) {
         if (!tv) return;
         id cur = objc_getAssociatedObject(tv, &kProxyKey);
         if (cur && tv.dataSource == cur) return;            // 已注入且未被替换
+        // 诊断日志：确认检测走到了哪一步
+        WXLog(@"设置页候选: %@ table=%@ 可见cell=%lu", NSStringFromClass([vc class]),
+              tv ? NSStringFromClass([tv class]) : @"nil", (unsigned long)tv.visibleCells.count);
         id ds = tv.dataSource;
-        if (!ds) return;
+        if (!ds) { [self retryLater:vc tableView:tv]; return; }
         // diffable dataSource 不碰，避免破坏快照机制
         Class diffable = NSClassFromString(@"UITableViewDiffableDataSource");
-        if (diffable && [ds isKindOfClass:diffable]) return;
-        // 关键词校验：可见 cell 里至少命中 2 个设置项
+        if (diffable && [ds isKindOfClass:diffable]) { WXLog(@"设置页 dataSource 是 diffable，跳过"); return; }
+        // 关键词校验：遍历可见 cell 内所有 UILabel（微信用自定义 cell，textLabel 为空）
         int hits = 0;
         NSSet *kw = settingsKeywords();
-        for (UITableViewCell *cell in tv.visibleCells) {
-            NSString *t = cell.textLabel.text;
-            if (!t.length) continue;
-            for (NSString *k in kw) {
-                if ([t containsString:k]) { hits++; break; }
+        NSArray *cells = tv.visibleCells;
+        for (UITableViewCell *cell in cells) {
+            NSMutableArray *texts = [NSMutableArray array];
+            collectLabelTexts(cell, texts);
+            for (NSString *t in texts) {
+                BOOL hit = NO;
+                for (NSString *k in kw) { if ([t containsString:k]) { hit = YES; break; } }
+                if (hit) { hits++; break; }
             }
             if (hits >= 2) break;
         }
-        if (hits < 2) return;
+        WXLog(@"设置页关键词命中 %d", hits);
+        if (hits < 2) { [self retryLater:vc tableView:tv]; return; }
         WXSubtextDSProxy *proxy = [[WXSubtextDSProxy alloc] initWithDataSource:ds
                                                                      delegate:tv.delegate
                                                                          host:vc];
@@ -166,10 +188,22 @@ static UITableView *findTableView(UIView *root) {
         tv.dataSource = (id<UITableViewDataSource>)proxy;
         tv.delegate = (id<UITableViewDelegate>)proxy;
         [tv reloadData];
+        objc_setAssociatedObject(tv, &kRetryKey, @(0), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         WXLog(@"设置页注入成功：已追加「潜台词」入口");
     } @catch (NSException *e) {
         WXLog(@"设置页注入异常: %@", e);
     }
+}
+
++ (void)retryLater:(UIViewController *)vc tableView:(UITableView *)tv {
+    NSNumber *n = objc_getAssociatedObject(tv, &kRetryKey);
+    if ([n intValue] >= 2) return;
+    objc_setAssociatedObject(tv, &kRetryKey, @([n intValue] + 1), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    __weak UIViewController *wvc = vc;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        UIViewController *s = wvc;
+        if (s && s.view.window) [self tryInjectSettingsEntry:s];
+    });
 }
 
 @end
