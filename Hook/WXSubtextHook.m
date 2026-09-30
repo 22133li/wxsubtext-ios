@@ -1,4 +1,5 @@
 #import "WXSubtextHook.h"
+#import "WXSubtextSettingsHook.h"
 #import "../Core/WXSubtextCore.h"
 #import <objc/runtime.h>
 
@@ -140,6 +141,8 @@ static void hook_viewDidAppear(id self, SEL _cmd, BOOL animated) {
                 gTalker = talkerOfVC(vc); // 同一列表，标题可能更新
             }
         }
+        // 微信设置页：追加「潜台词」设置入口（1.01）
+        [WXSubtextSettingsHook tryInjectSettingsEntry:vc];
     } @catch (NSException *e) { WXLog(@"viewDidAppear 处理异常: %@", e); }
 }
 

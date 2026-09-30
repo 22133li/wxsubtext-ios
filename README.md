@@ -14,8 +14,13 @@ Android Xposed 版 `WxSubtext V1.7` 的 iOS 移植。核心逻辑（prompt / 脱
 - GitHub Actions：`.github/workflows/build.yml`，macOS + Theos，产物为 `.deb`
 - 手机端：theosinstaller 建工程后把本目录文件拷进去 `make package`
 
-## 配置（Filza 编辑）
-`/var/mobile/Library/Preferences/com.haoran.wxsubtext.plist`，键：
+## 配置（微信内设置 / Filza 编辑）
+
+1.01+：微信「我 → 设置」最下方会出现「潜台词」入口，点进去直接改：总开关、API Key、接口地址、
+模型、默认关系、脱敏开关、分析所有单聊、白名单（每行一个备注名）、自定义敏感词、限流参数。
+修改实时生效，无需重启微信。
+
+也可以用 Filza 直接编辑 `/var/mobile/Library/Preferences/com.haoran.wxsubtext.plist`，键：
 `Enabled`(bool) `APIKey`(string) `BaseURL`(string，默认 DeepSeek) `Model`(string，默认 deepseek-chat)
 `RelationDefault`(string，默认"亲密关系（伴侣）") `Desensitize`(bool) `SensitiveWords`(array)
 `ContextSize`(int，默认5) `CollapseToTop1`(bool) `OnlyLatest`(bool) `MaxCallsPerHour`(int，默认60)

@@ -34,4 +34,15 @@ static id pref(NSString *k) {
     if (self.analyzeAllContacts) return YES;
     return talker.length && [self.enabledTalkers containsObject:talker];
 }
+#pragma mark - 写入
+- (void)writeValue:(id)v forKey:(NSString *)key {
+    CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef)v,
+                             (__bridge CFStringRef)kDomain);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)kDomain);
+    [self reload];
+}
+- (void)writeBool:(BOOL)v forKey:(NSString *)key    { [self writeValue:@(v) forKey:key]; }
+- (void)writeString:(NSString *)v forKey:(NSString *)key { [self writeValue:v ?: @"" forKey:key]; }
+- (void)writeInteger:(NSInteger)v forKey:(NSString *)key { [self writeValue:@(v) forKey:key]; }
+- (void)writeArray:(NSArray *)v forKey:(NSString *)key   { [self writeValue:v ?: @[] forKey:key]; }
 @end

@@ -20,5 +20,10 @@
 @property (nonatomic, copy)   NSSet<NSString *> *enabledTalkers; // 白名单（会话标题），analyzeAllContacts=NO 时生效
 + (instancetype)shared;
 - (void)reload;
+// 写入（设置面板用）：落盘到同一 plist 并刷新内存值，实时生效
+- (void)writeBool:(BOOL)v forKey:(NSString *)key;
+- (void)writeString:(NSString *)v forKey:(NSString *)key;
+- (void)writeInteger:(NSInteger)v forKey:(NSString *)key;
+- (void)writeArray:(NSArray *)v forKey:(NSString *)key;
 - (BOOL)shouldAnalyzeTalker:(NSString *)talker;
 @end
