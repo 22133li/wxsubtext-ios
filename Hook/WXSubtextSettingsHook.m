@@ -2,7 +2,12 @@
 #import "../UI/WXSubtextSettingsVC.h"
 #import <objc/runtime.h>
 
-#define WXLog(fmt, ...) NSLog(@"[WXSubtext] " fmt, ##__VA_ARGS__)
+#import "WXSubtextLog.h"
+
+@interface WXSubtextSettingsHook ()
++ (void)retryLater:(UIViewController *)vc tableView:(UITableView *)tv;
+@end
+#define WXLog(fmt, ...) WXSubtextLogMessage(@"[WXSubtext] " fmt, ##__VA_ARGS__)
 
 static char kProxyKey;
 
@@ -143,9 +148,6 @@ static void collectLabelTexts(UIView *v, NSMutableArray *out) {
 }
 
 static char kRetryKey;
-
-// cell 可能延迟加载：失败时最多延迟重试 2 次
-+ (void)retryLater:(UIViewController *)vc tableView:(UITableView *)tv;
 
 + (void)tryInjectSettingsEntry:(UIViewController *)vc {
     @try {

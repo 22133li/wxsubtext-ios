@@ -3,7 +3,8 @@
 #import "../Core/WXSubtextCore.h"
 #import <objc/runtime.h>
 
-#define WXLog(fmt, ...) NSLog(@"[WXSubtext] " fmt, ##__VA_ARGS__)
+#import "WXSubtextLog.h"
+#define WXLog(fmt, ...) WXSubtextLogMessage(@"[WXSubtext] " fmt, ##__VA_ARGS__)
 
 // 已确认的聊天页（弱引用，避免野指针）
 static __weak UIViewController *gChatVC = nil;
@@ -126,8 +127,9 @@ static void hook_viewDidAppear(id self, SEL _cmd, BOOL animated) {
         NSString *cn = NSStringFromClass([vc class]);
         if (![seen containsObject:cn]) {
             [seen addObject:cn];
-            if ([cn rangeOfString:@"chat" options:NSCaseInsensitiveSearch].location != NSNotFound)
-                WXLog(@"候选聊天 VC: %@", cn);
+            NSString *vt = vc.navigationItem.title;
+            if (!vt.length) vt = vc.title;
+            WXLog(@"VC 出现: %@ title=%@", cn, vt ?: @"");
         }
         if (looksLikeChatVC(vc)) {
             UIScrollView *sv = findChatScrollView(vc.view);
