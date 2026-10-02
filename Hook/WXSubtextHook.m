@@ -20,16 +20,19 @@ static void hook_collCellLayout(id self, SEL _cmd);
 
 static BOOL isNoiseText(NSString *t) {
     if (!t.length || t.length > 500) return YES;
-    static NSRegularExpression *timeRe, *dateRe;
+    static NSRegularExpression *timeRe, *weekRe, *dateRe;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        timeRe = [NSRegularExpression regularExpressionWithPattern:@"^\\d{1,2}:\\d{2}$" options:0 error:nil];
+        timeRe = [NSRegularExpression regularExpressionWithPattern:@"^\\d{1,2}:\\d{2}(:\\d{2})?$" options:0 error:nil];
+        weekRe = [NSRegularExpression regularExpressionWithPattern:@"^(星期[一二三四五六日天]|周[一二三四五六日天])\\s*\\d{1,2}:\\d{2}(:\\d{2})?$" options:0 error:nil];
         dateRe = [NSRegularExpression regularExpressionWithPattern:@"^\\d{1,2}月\\d{1,2}日" options:0 error:nil];
     });
-    if ([timeRe numberOfMatchesInString:t options:0 range:NSMakeRange(0, t.length)]) return YES;
-    if ([dateRe numberOfMatchesInString:t options:0 range:NSMakeRange(0, t.length)]) return YES;
+    NSRange r = NSMakeRange(0, t.length);
+    if ([timeRe numberOfMatchesInString:t options:0 range:r]) return YES;
+    if ([weekRe numberOfMatchesInString:t options:0 range:r]) return YES;
+    if ([dateRe numberOfMatchesInString:t options:0 range:r]) return YES;
     if ([t containsString:@"撤回了一条消息"]) return YES;
-    if ([t isEqualToString:@"对方正在输入"]) return YES;
+    if ([t containsString:@"正在输入"]) return YES;
     return NO;
 }
 

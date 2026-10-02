@@ -11,7 +11,8 @@
 
 static char kProxyKey;
 
-// dataSource/delegate 代理：只追加最后一个 section，其余方法全部透传给原对象
+// dataSource/delegate 代理：在顶部插入一个 section（section 0 是「潜台词」入口，
+// 原对象的 section 整体后移一位），其余方法做位移后透传给原对象
 @interface WXSubtextDSProxy : NSProxy <UITableViewDataSource, UITableViewDelegate> {
     id _ds;
     id _dg;
@@ -33,19 +34,27 @@ static NSInteger origSections(id ds, UITableView *tv) {
     return 1;
 }
 
-#pragma mark - 显式实现（追加的 section）
+// 原坐标 section -> 代理坐标（+1）；代理坐标 -> 原坐标（-1）
+static NSIndexPath *shiftUp(NSIndexPath *ip) {
+    return [NSIndexPath indexPathForRow:ip.row inSection:ip.section + 1];
+}
+static NSIndexPath *shiftDown(NSIndexPath *ip) {
+    return [NSIndexPath indexPathForRow:ip.row inSection:ip.section - 1];
+}
+
+#pragma mark - 显式实现（顶部的 section 0）
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
     return origSections(_ds, tv) + 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
-    if (s == origSections(_ds, tv)) return 1;
-    return [_ds tableView:tv numberOfRowsInSection:s];
+    if (s == 0) return 1;
+    return [_ds tableView:tv numberOfRowsInSection:s - 1];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    if (ip.section == origSections(_ds, tv)) {
+    if (ip.section == 0) {
         UITableViewCell *c = [tv dequeueReusableCellWithIdentifier:@"wxst_settings_entry"];
         if (!c) {
             c = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
@@ -55,35 +64,86 @@ static NSInteger origSections(id ds, UITableView *tv) {
         }
         return c;
     }
-    return [_ds tableView:tv cellForRowAtIndexPath:ip];
+    return [_ds tableView:tv cellForRowAtIndexPath:shiftDown(ip)];
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
-    if (ip.section == origSections(_ds, tv)) {
+    if (ip.section == 0) {
         [tv deselectRowAtIndexPath:ip animated:YES];
         WXSubtextSettingsVC *svc = [[WXSubtextSettingsVC alloc] init];
         [_host.navigationController pushViewController:svc animated:YES];
         return;
     }
     if ([_dg respondsToSelector:@selector(tableView:didSelectRowAtIndexPath:)])
-        [_dg tableView:tv didSelectRowAtIndexPath:ip];
+        [_dg tableView:tv didSelectRowAtIndexPath:shiftDown(ip)];
+}
+
+- (NSIndexPath *)tableView:(UITableView *)tv willSelectRowAtIndexPath:(NSIndexPath *)ip {
+    if (ip.section == 0) return ip;
+    if ([_dg respondsToSelector:@selector(tableView:willSelectRowAtIndexPath:)]) {
+        NSIndexPath *r = [_dg tableView:tv willSelectRowAtIndexPath:shiftDown(ip)];
+        return r ? shiftUp(r) : nil;
+    }
+    return ip;
+}
+
+- (BOOL)tableView:(UITableView *)tv shouldHighlightRowAtIndexPath:(NSIndexPath *)ip {
+    if (ip.section == 0) return YES;
+    if ([_dg respondsToSelector:@selector(tableView:shouldHighlightRowAtIndexPath:)])
+        return [_dg tableView:tv shouldHighlightRowAtIndexPath:shiftDown(ip)];
+    return YES;
 }
 
 - (CGFloat)tableView:(UITableView *)tv heightForRowAtIndexPath:(NSIndexPath *)ip {
-    if (ip.section == origSections(_ds, tv)) return 48;
+    if (ip.section == 0) return 48;
     if ([_dg respondsToSelector:@selector(tableView:heightForRowAtIndexPath:)])
-        return [_dg tableView:tv heightForRowAtIndexPath:ip];
+        return [_dg tableView:tv heightForRowAtIndexPath:shiftDown(ip)];
     return 44;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
-    if (s == origSections(_ds, tv)) return @"插件";
+    if (s == 0) return @"插件";
     if ([_ds respondsToSelector:@selector(tableView:titleForHeaderInSection:)])
-        return [_ds tableView:tv titleForHeaderInSection:s];
+        return [_ds tableView:tv titleForHeaderInSection:s - 1];
     return nil;
 }
 
-#pragma mark - NSProxy 透传
+- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
+    if (s == 0) return nil;
+    if ([_ds respondsToSelector:@selector(tableView:titleForFooterInSection:)])
+        return [_ds tableView:tv titleForFooterInSection:s - 1];
+    return nil;
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)s {
+    if (s == 0) return 28;
+    if ([_dg respondsToSelector:@selector(tableView:heightForHeaderInSection:)])
+        return [_dg tableView:tv heightForHeaderInSection:s - 1];
+    return 28;
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForFooterInSection:(NSInteger)s {
+    if (s == 0) return 0.01;
+    if ([_dg respondsToSelector:@selector(tableView:heightForFooterInSection:)])
+        return [_dg tableView:tv heightForFooterInSection:s - 1];
+    return 0.01;
+}
+
+- (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)s {
+    if (s == 0) return nil;
+    if ([_dg respondsToSelector:@selector(tableView:viewForHeaderInSection:)])
+        return [_dg tableView:tv viewForHeaderInSection:s - 1];
+    return nil;
+}
+
+- (UIView *)tableView:(UITableView *)tv viewForFooterInSection:(NSInteger)s {
+    if (s == 0) return nil;
+    if ([_dg respondsToSelector:@selector(tableView:viewForFooterInSection:)])
+        return [_dg tableView:tv viewForFooterInSection:s - 1];
+    return nil;
+}
+
+#pragma mark - NSProxy 透传（带 section 位移）
 
 - (BOOL)respondsToSelector:(SEL)sel {
     static NSSet *own = nil;
@@ -93,8 +153,15 @@ static NSInteger origSections(id ds, UITableView *tv) {
         @"tableView:numberOfRowsInSection:",
         @"tableView:cellForRowAtIndexPath:",
         @"tableView:didSelectRowAtIndexPath:",
+        @"tableView:willSelectRowAtIndexPath:",
+        @"tableView:shouldHighlightRowAtIndexPath:",
         @"tableView:heightForRowAtIndexPath:",
         @"tableView:titleForHeaderInSection:",
+        @"tableView:titleForFooterInSection:",
+        @"tableView:heightForHeaderInSection:",
+        @"tableView:heightForFooterInSection:",
+        @"tableView:viewForHeaderInSection:",
+        @"tableView:viewForFooterInSection:",
     ]]; });
     if ([own containsObject:NSStringFromSelector(sel)]) return YES;
     if ([_ds respondsToSelector:sel]) return YES;
@@ -109,6 +176,30 @@ static NSInteger origSections(id ds, UITableView *tv) {
 }
 
 - (void)forwardInvocation:(NSInvocation *)inv {
+    // 透传调用里的 NSIndexPath 需要回拨一位（代理坐标 -> 原坐标）；
+    // 指向 section 0（我们的入口）的调用直接吞掉，不透传给原对象
+    NSMethodSignature *sig = inv.methodSignature;
+    BOOL drop = NO;
+    for (NSUInteger i = 2; i < sig.numberOfArguments; i++) {
+        const char *t = [sig getArgumentTypeAtIndex:i];
+        if (t[0] != '@') continue;
+        __unsafe_unretained id arg = nil;
+        [inv getArgument:&arg atIndex:i];
+        if ([arg isKindOfClass:[NSIndexPath class]]) {
+            NSIndexPath *ip = (NSIndexPath *)arg;
+            if (ip.section == 0) { drop = YES; break; }
+            NSIndexPath *shifted = shiftDown(ip);
+            [inv setArgument:&shifted atIndex:i];
+        }
+    }
+    if (drop) {
+        NSUInteger len = sig.methodReturnLength;
+        if (len > 0 && len <= 64) {
+            unsigned char z[64] = {0};
+            [inv setReturnValue:z];
+        }
+        return;
+    }
     if ([_ds respondsToSelector:inv.selector]) { [inv invokeWithTarget:_ds]; return; }
     if ([_dg respondsToSelector:inv.selector]) { [inv invokeWithTarget:_dg]; return; }
 }
@@ -191,7 +282,7 @@ static char kRetryKey;
         tv.delegate = (id<UITableViewDelegate>)proxy;
         [tv reloadData];
         objc_setAssociatedObject(tv, &kRetryKey, @(0), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        WXLog(@"设置页注入成功：已追加「潜台词」入口");
+        WXLog(@"设置页注入成功：已在顶部插入「潜台词」入口");
     } @catch (NSException *e) {
         WXLog(@"设置页注入异常: %@", e);
     }
