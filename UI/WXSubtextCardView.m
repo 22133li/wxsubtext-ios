@@ -47,6 +47,25 @@
 }
 - (void)closeTapped { if (self.onClose) self.onClose(); [self removeFromSuperview]; }
 
+// 让卡片高度贴合内容（多行 label 先设 preferredMaxLayoutWidth 再量）
+- (void)setMaxLayoutWidth:(CGFloat)w forView:(UIView *)v {
+    if ([v isKindOfClass:[UILabel class]]) {
+        UILabel *l = (UILabel *)v;
+        if (l.numberOfLines != 1) l.preferredMaxLayoutWidth = w;
+    }
+    for (UIView *s in v.subviews) [self setMaxLayoutWidth:w forView:s];
+}
+- (void)fitHeight {
+    CGFloat w = self.frame.size.width - 20;
+    [self setMaxLayoutWidth:w forView:_stack];
+    CGSize fitting = [_stack systemLayoutSizeFittingSize:CGSizeMake(w, 0)
+                                withHorizontalFittingPriority:UILayoutPriorityRequired
+                                      verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
+    CGRect f = self.frame;
+    f.size.height = MAX(64, fitting.height + 20);
+    self.frame = f;
+}
+
 - (void)clearBody {
     for (UIView *v in [_stack.arrangedSubviews subarrayWithRange:NSMakeRange(1, _stack.arrangedSubviews.count - 1)])
         [_stack removeArrangedSubview:v], [v removeFromSuperview];
@@ -72,6 +91,7 @@
     [row.heightAnchor constraintEqualToConstant:44].active = YES;
     [_stack addArrangedSubview:row];
     [_stack addArrangedSubview:[self label:@"正在解读潜台词…" size:12 color:[UIColor lightGrayColor] bold:NO]];
+    [self fitHeight];
 }
 
 - (void)showError:(NSString *)message {
@@ -82,6 +102,7 @@
     _retryBtn.titleLabel.font = [UIFont systemFontOfSize:13];
     [_retryBtn addTarget:self action:@selector(retryTapped) forControlEvents:UIControlEventTouchUpInside];
     [_stack addArrangedSubview:_retryBtn];
+    [self fitHeight];
 }
 - (void)retryTapped { if (self.onRetry) self.onRetry(); }
 
@@ -172,6 +193,7 @@
     }
     if (a.action.length)
         [_stack addArrangedSubview:[self label:[NSString stringWithFormat:@"建议：%@", a.action] size:12 color:[UIColor colorWithRed:0.6 green:1 blue:0.6 alpha:1] bold:NO]];
+    [self fitHeight];
 }
 - (void)copyTapped:(UIButton *)b {
     NSString *reply = objc_getAssociatedObject(b, @"reply");

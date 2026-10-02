@@ -21,7 +21,7 @@ static id pref(NSString *k) {
     v = pref(@"RelationDefault");    self.relationDefault = [v isKindOfClass:[NSString class]] && [v length] ? v : @"亲密关系（伴侣）";
     v = pref(@"Desensitize");        self.desensitize = v ? [v boolValue] : YES;
     v = pref(@"SensitiveWords");     self.sensitiveWords = [v isKindOfClass:[NSArray class]] ? v : @[];
-    v = pref(@"ContextSize");        self.contextSize = v ? [v integerValue] : 5;
+    v = pref(@"ContextSize");        self.contextSize = v ? [v integerValue] : 20;
     v = pref(@"CollapseToTop1");     self.collapseToTop1 = v ? [v boolValue] : YES;
     v = pref(@"OnlyLatest");         self.onlyLatest = v ? [v boolValue] : YES;
     v = pref(@"MaxCallsPerHour");    self.maxCallsPerHour = v ? [v integerValue] : 60;

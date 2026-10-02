@@ -34,9 +34,14 @@
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     req.HTTPBody = data;
     NSTimeInterval t = MAX(cfg.timeoutMs / 1000.0, 5);
-    NSURLSessionConfiguration *sc = [NSURLSessionConfiguration defaultSessionConfiguration];
-    sc.timeoutIntervalForRequest = t; sc.timeoutIntervalForResource = t;
-    NSURLSession *session = [NSURLSession sessionWithConfiguration:sc];
+    // 复用 session（连接复用，省掉重复 TLS 握手）
+    static NSURLSession *session = nil;
+    static dispatch_once_t st;
+    dispatch_once(&st, ^{
+        NSURLSessionConfiguration *sc = [NSURLSessionConfiguration defaultSessionConfiguration];
+        sc.timeoutIntervalForRequest = t; sc.timeoutIntervalForResource = t;
+        session = [NSURLSession sessionWithConfiguration:sc];
+    });
     [[session dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *resp, NSError *err) {
         WXSubtextAnalysis *a = nil;
         if (err) {

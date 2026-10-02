@@ -109,8 +109,8 @@ static NSString *talkerOfVC(UIViewController *vc) {
 @implementation WXSubtextKVOHolder
 - (void)observeValueForKeyPath:(NSString *)kp ofObject:(id)obj change:(NSDictionary *)ch context:(void *)ctx {
     if (ctx == kKVOContext) {
-        // 滚动位移较大时关卡片，避免错位
-        [[WXSubtextCore shared] leaveChat];
+        // 滚动时卡片跟随消息，而不是直接关掉
+        [[WXSubtextCore shared] chatDidScroll];
     }
 }
 @end
@@ -138,6 +138,7 @@ static void hook_viewDidAppear(id self, SEL _cmd, BOOL animated) {
             UIScrollView *sv = findChatScrollView(vc.view);
             if (sv && sv != gChatScroll) {
                 gChatVC = vc; gChatScroll = sv; gTalker = talkerOfVC(vc);
+                [[WXSubtextCore shared] noteChatEntered];
                 WXLog(@"进入聊天页: %@ talker=%@ scroll=%@", cn, gTalker, NSStringFromClass([sv class]));
                 if (!gKVO) gKVO = [[WXSubtextKVOHolder alloc] init];
                 @try { [sv addObserver:gKVO forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:kKVOContext]; }

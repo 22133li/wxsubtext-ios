@@ -21,4 +21,10 @@
 
 // 离开聊天页时调用，清理卡片与上下文
 - (void)leaveChat;
+
+// 进入聊天页时调用（用于抑制初始布局风暴期的自动分析）
+- (void)noteChatEntered;
+
+// 聊天列表滚动时调用：卡片跟随所分析的消息移动，而不是直接消失
+- (void)chatDidScroll;
 @end
