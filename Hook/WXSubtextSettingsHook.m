@@ -5,6 +5,7 @@
 #import "WXSubtextLog.h"
 
 @interface WXSubtextSettingsHook ()
++ (void)tryInject:(UIViewController *)vc isRetry:(BOOL)isRetry;
 + (void)retryLater:(UIViewController *)vc tableView:(UITableView *)tv;
 @end
 #define WXLog(fmt, ...) WXSubtextLogMessage(@"[WXSubtext] " fmt, ##__VA_ARGS__)
@@ -241,6 +242,10 @@ static void collectLabelTexts(UIView *v, NSMutableArray *out) {
 static char kRetryKey;
 
 + (void)tryInjectSettingsEntry:(UIViewController *)vc {
+    [self tryInject:vc isRetry:NO];
+}
+
++ (void)tryInject:(UIViewController *)vc isRetry:(BOOL)isRetry {
     @try {
         if (!vc.view || !vc.navigationController) return;
         NSString *title = vc.navigationItem.title;
@@ -250,6 +255,10 @@ static char kRetryKey;
         if (!tv) return;
         id cur = objc_getAssociatedObject(tv, &kProxyKey);
         if (cur && tv.dataSource == cur) return;            // 已注入且未被替换
+        if (!isRetry) {
+            // 每次新进入设置页都清零重试计数，避免某次 cell 加载慢耗尽次数后永久不再注入
+            objc_setAssociatedObject(tv, &kRetryKey, @(0), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
         // 诊断日志：确认检测走到了哪一步
         WXLog(@"设置页候选: %@ table=%@ 可见cell=%lu", NSStringFromClass([vc class]),
               tv ? NSStringFromClass([tv class]) : @"nil", (unsigned long)tv.visibleCells.count);
@@ -295,7 +304,7 @@ static char kRetryKey;
     __weak UIViewController *wvc = vc;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         UIViewController *s = wvc;
-        if (s && s.view.window) [self tryInjectSettingsEntry:s];
+        if (s && s.view.window) [self tryInject:s isRetry:YES];
     });
 }
 
