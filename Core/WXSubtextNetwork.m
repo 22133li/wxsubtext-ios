@@ -2,6 +2,7 @@
 #import "WXSubtextConfig.h"
 #import "WXSubtextPrompt.h"
 #import "WXSubtextAnalysis.h"
+#import "../Hook/WXSubtextLog.h"
 
 @implementation WXSubtextNetwork
 + (void)analyseWithRelation:(NSString *)relation
@@ -55,8 +56,17 @@
                 NSString *content = @"";
                 if ([choices isKindOfClass:[NSArray class]] && choices.count)
                     content = choices[0][@"message"][@"content"] ?: @"";
-                a = content.length ? [WXSubtextAnalysis fromJSONString:content quote:message]
-                                   : [WXSubtextAnalysis errorWithMessage:@"返回无 choices"];
+                if (!content.length) {
+                    // 诊断：把实际返回的前 300 字符记到日志，卡片上也带 80 字符预览，方便定位接口问题
+                    NSString *logPreview = bodyStr.length > 300 ? [bodyStr substringToIndex:300] : bodyStr;
+                    WXSubtextLogMessage(@"[WXSubtext] API 返回无 choices，HTTP %ld，body 前 300 字符: %@",
+                                        (long)http.statusCode, logPreview);
+                    NSString *cardPreview = bodyStr.length > 80 ? [bodyStr substringToIndex:80] : bodyStr;
+                    a = [WXSubtextAnalysis errorWithMessage:
+                         [NSString stringWithFormat:@"返回无 choices（返回内容：%@）", cardPreview]];
+                } else {
+                    a = [WXSubtextAnalysis fromJSONString:content quote:message];
+                }
             } else {
                 NSString *head = bodyStr.length > 160 ? [bodyStr substringToIndex:160] : bodyStr;
                 a = [WXSubtextAnalysis errorWithMessage:[NSString stringWithFormat:@"HTTP %ld %@", (long)http.statusCode, head]];

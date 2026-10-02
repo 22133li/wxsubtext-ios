@@ -145,11 +145,28 @@ static void hook_viewDidAppear(id self, SEL _cmd, BOOL animated) {
                 @try { [sv addObserver:gKVO forKeyPath:@"contentOffset" options:NSKeyValueObservingOptionNew context:kKVOContext]; }
                 @catch (NSException *e) {}
                 // 补抓：cell 的 layoutSubviews 在 viewDidAppear 之前已触发完毕，
-                // 此时 gChatScroll 才刚就绪，手动对可见 cell 补一次抓取，否则进页消息全部漏掉
+                // 此时 gChatScroll 才刚就绪，手动对可见 cell 补一次抓取，否则进页消息全部漏掉。
+                // 注意 visibleCells 不保证按 Y 排序，按纵坐标排好序再抓，保证"最新一条"真是时间上最新的
                 if ([sv isKindOfClass:[UITableView class]]) {
-                    for (UITableViewCell *cell in [(UITableView *)sv visibleCells]) handleCellLayout(cell);
+                    UITableView *tv = (UITableView *)sv;
+                    NSArray *sorted = [[tv visibleCells] sortedArrayUsingComparator:^NSComparisonResult(UITableViewCell *a, UITableViewCell *b) {
+                        CGRect fa = [a.superview convertRect:a.frame toView:tv];
+                        CGRect fb = [b.superview convertRect:b.frame toView:tv];
+                        if (fa.origin.y < fb.origin.y) return NSOrderedAscending;
+                        if (fa.origin.y > fb.origin.y) return NSOrderedDescending;
+                        return NSOrderedSame;
+                    }];
+                    for (UITableViewCell *cell in sorted) handleCellLayout(cell);
                 } else if ([sv isKindOfClass:[UICollectionView class]]) {
-                    for (UICollectionViewCell *cell in [(UICollectionView *)sv visibleCells]) handleCellLayout(cell);
+                    UICollectionView *cv = (UICollectionView *)sv;
+                    NSArray *sorted = [[cv visibleCells] sortedArrayUsingComparator:^NSComparisonResult(UICollectionViewCell *a, UICollectionViewCell *b) {
+                        CGRect fa = [a.superview convertRect:a.frame toView:cv];
+                        CGRect fb = [b.superview convertRect:b.frame toView:cv];
+                        if (fa.origin.y < fb.origin.y) return NSOrderedAscending;
+                        if (fa.origin.y > fb.origin.y) return NSOrderedDescending;
+                        return NSOrderedSame;
+                    }];
+                    for (UICollectionViewCell *cell in sorted) handleCellLayout(cell);
                 }
             } else if (sv) {
                 gTalker = talkerOfVC(vc); // 同一列表，标题可能更新
