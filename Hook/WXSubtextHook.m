@@ -19,6 +19,8 @@ static void handleCellLayout(UIView *cell);
 
 #pragma mark - 文本抓取（MsgExtractor 的 UIKit 版）
 
+static BOOL isFileMessageText(NSString *t);
+
 static BOOL isNoiseText(NSString *t) {
     if (!t.length || t.length > 500) return YES;
     static NSRegularExpression *timeRe, *weekRe, *dateRe;
@@ -34,20 +36,63 @@ static BOOL isNoiseText(NSString *t) {
     if ([dateRe numberOfMatchesInString:t options:0 range:r]) return YES;
     if ([t containsString:@"撤回了一条消息"]) return YES;
     if ([t containsString:@"正在输入"]) return YES;
+    // 通话记录类系统消息（居中显示的语音/视频通话记录）
+    if ([t containsString:@"通话时长"]) return YES;
+    if ([t isEqualToString:@"已取消"] || [t isEqualToString:@"对方已取消"] ||
+        [t isEqualToString:@"已拒绝"] || [t isEqualToString:@"对方已拒绝"]) return YES;
+    if ([t containsString:@"无应答"] || [t containsString:@"忙线未接听"] ||
+        [t containsString:@"对方忙线中"]) return YES;
+    // 文件消息：气泡内 "文件名\n12.5 MB" 两行结构
+    if (isFileMessageText(t)) return YES;
     return NO;
+}
+
+// 微信文件消息气泡文本特征：第一行文件名（含扩展名），第二行文件大小
+static BOOL isFileMessageText(NSString *t) {
+    NSArray *lines = [t componentsSeparatedByString:@"\n"];
+    if (lines.count < 2) return NO;
+    NSString *first = [lines[0] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    NSString *second = [lines[1] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    if (!first.length || !second.length) return NO;
+    static NSRegularExpression *reSize = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        reSize = [NSRegularExpression regularExpressionWithPattern:@"^\\d+(\\.\\d+)?\\s*(B|KB|MB|GB)$"
+                                                          options:NSRegularExpressionCaseInsensitive error:nil];
+    });
+    NSRange r = NSMakeRange(0, second.length);
+    if (![reSize numberOfMatchesInString:second options:0 range:r]) return NO;
+    NSString *ext = [[first pathExtension] lowercaseString];
+    static NSSet *exts = nil;
+    static dispatch_once_t once2;
+    dispatch_once(&once2, ^{
+        exts = [NSSet setWithObjects:@"pdf",@"doc",@"docx",@"xls",@"xlsx",@"ppt",@"pptx",
+                @"txt",@"rtf",@"csv",@"zip",@"rar",@"7z",@"tar",@"gz",
+                @"mp3",@"wav",@"m4a",@"mp4",@"mov",@"avi",@"mkv",
+                @"jpg",@"jpeg",@"png",@"gif",@"bmp",@"webp",@"heic",
+                @"apk",@"ipa",@"exe",@"dmg", nil];
+    });
+    return [exts containsObject:ext];
+}
+
+// UILabel 取完整文本：微信聊天文本用 attributedText（富文本），text 为空时回退取 attributedText.string
+static NSString *labelFullText(UILabel *l) {
+    NSString *t = l.text;
+    if (!t.length && l.attributedText) t = l.attributedText.string;
+    return [t stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] ?: @"";
 }
 
 // 返回最长有效文本的 UILabel（BFS 遍历 contentView）
 static UILabel *findContentLabel(UIView *root) {
     UILabel *best = nil;
+    NSUInteger bestLen = 0;
     NSMutableArray *q = [NSMutableArray arrayWithObject:root];
     while (q.count) {
         UIView *v = q[0]; [q removeObjectAtIndex:0];
         if (!v || v.hidden || v.alpha < 0.01) continue;
         if ([v isKindOfClass:[UILabel class]]) {
-            NSString *t = [(UILabel *)v text];
-            t = [t stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            if (!isNoiseText(t) && (!best || t.length > best.text.length)) best = (UILabel *)v;
+            NSString *t = labelFullText((UILabel *)v);
+            if (!isNoiseText(t) && t.length > bestLen) { best = (UILabel *)v; bestLen = t.length; }
         }
         for (UIView *s in v.subviews) [q addObject:s];
     }
@@ -203,7 +248,7 @@ static void handleCellLayout(UIView *cell) {
         if (!content) content = cell;
         UILabel *label = findContentLabel(content);
         if (!label) return;
-        NSString *text = [label.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        NSString *text = labelFullText(label);
         NSString *last = objc_getAssociatedObject(cell, @"wxst_last");
         if ([last isEqualToString:text]) return; // 去重
         objc_setAssociatedObject(cell, @"wxst_last", text, OBJC_ASSOCIATION_COPY_NONATOMIC);
