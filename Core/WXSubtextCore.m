@@ -126,16 +126,16 @@ static const NSTimeInterval kChatEnterSuppress = 2.0; // 进聊天页 2 秒内�
     if (!fromOther) return; // 只分析对方发来的消息
 
     self.lastIncoming[talker] = text;
-    if (cfg.onlyLatest) {
-        // 只分析最新一条：延迟 300ms 再看是否仍是最新，避免连续消息重复触发
+    NSTimeInterval sinceEnter = [NSDate timeIntervalSinceReferenceDate] - self.chatEnterTime;
+    if (cfg.onlyLatest || sinceEnter < kChatEnterSuppress) {
+        // 防抖：300ms 内以最新一条为准。
+        // 只分析最新模式恒成立；分析所有消息模式下，进聊天页 2 秒内的初始布局风暴也只分析最新一条，避免历史消息洪水。
         NSString *snap = text;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kOnlyLatestDebounce * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             if ([self.lastIncoming[talker] isEqualToString:snap])
                 [self maybeAnalyze:text talker:talker anchorView:anchorView container:container force:NO];
         });
     } else {
-        // 进聊天页 2 秒内的初始布局风暴只缓冲不分析，避免历史消息刷屏式调用
-        if ([NSDate timeIntervalSinceReferenceDate] - self.chatEnterTime < kChatEnterSuppress) return;
         [self maybeAnalyze:text talker:talker anchorView:anchorView container:container force:NO];
     }
 }
@@ -168,8 +168,8 @@ static const NSTimeInterval kChatEnterSuppress = 2.0; // 进聊天页 2 秒内�
         [self render:cached talker:talker anchorView:anchorView container:container];
         return;
     }
-    if ([self.inflight containsObject:key]) return;
-    if (!force && ![self allowCall]) return; // 触发限流则跳过（手动触发不受限）
+    if ([self.inflight containsObject:key]) { WXSubtextLogMessage(@"[WXSubtext] 分析跳过：相同请求在途"); return; }
+    if (!force && ![self allowCall]) { WXSubtextLogMessage(@"[WXSubtext] 分析跳过：触发每小时限流"); return; } // 触发限流则跳过（手动触发不受限）
     [self.inflight addObject:key];
     [self.callTimes addObject:[NSDate date]];
 

@@ -20,7 +20,7 @@
             @{@"role": @"user", @"content": [WXSubtextPrompt userMessageWithRelation:relation context:context latestMessage:message]},
         ],
         @"temperature": @0.7,
-        @"max_tokens": @800,
+        @"max_tokens": @1200,
         @"response_format": @{@"type": @"json_object"},
     };
     NSData *data = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];

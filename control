@@ -1,6 +1,6 @@
 Package: com.haoran.wxsubtext
 Name: 潜台词
-Version: 1.04
+Version: 1.05
 Architecture: iphoneos-arm64
 Description: 微信聊天潜台词 AI 解读（iOS 移植版）
 Maintainer: haoran

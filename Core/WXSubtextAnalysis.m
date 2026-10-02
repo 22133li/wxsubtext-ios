@@ -11,11 +11,11 @@
 + (instancetype)fromJSONString:(NSString *)json quote:(NSString *)quote {
     if (!json.length) return [self errorWithMessage:@"返回为空"];
     NSString *s = [json stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if ([s hasPrefix:@"```"]) { // 去掉 markdown 代码块包裹
-        NSRange l = [s rangeOfString:@"{"], r = [s rangeOfString:@"}" options:NSBackwardsSearch];
-        if (l.location != NSNotFound && r.location != NSNotFound && r.location > l.location)
-            s = [s substringWithRange:NSMakeRange(l.location, r.location - l.location + 1)];
-    }
+    // 容错：提取最外层 { ... }，去掉前后缀说明 / markdown 代码块包裹
+    NSRange l = [s rangeOfString:@"{"], r = [s rangeOfString:@"}" options:NSBackwardsSearch];
+    if (l.location == NSNotFound || r.location == NSNotFound || r.location <= l.location)
+        return [self errorWithMessage:@"返回不是合法 JSON"];
+    s = [s substringWithRange:NSMakeRange(l.location, r.location - l.location + 1)];
     // 容错：修复尾随逗号
     s = [[NSRegularExpression regularExpressionWithPattern:@",\\s*\\}" options:0 error:nil]
          stringByReplacingMatchesInString:s options:0 range:NSMakeRange(0, s.length) withTemplate:@"}"];
