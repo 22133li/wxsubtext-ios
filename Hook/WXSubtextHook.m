@@ -92,7 +92,7 @@ static UILabel *findContentLabel(UIView *root) {
     NSMutableArray *q = [NSMutableArray arrayWithObject:root];
     while (q.count) {
         UIView *v = q[0]; [q removeObjectAtIndex:0];
-        if (!v || v.hidden || v.alpha < 0.01) continue;
+        if (!v || v.hidden) continue;
         if ([v isKindOfClass:[UILabel class]]) {
             NSString *t = labelFullText((UILabel *)v);
             if (!isNoiseText(t) && t.length > bestLen) { best = (UILabel *)v; bestLen = t.length; }
@@ -125,8 +125,10 @@ static UIScrollView *findChatScrollView(UIView *root) {
 }
 
 // 启发式：VC 类名含 chat（忽略大小写），或其 cell 类名含 message/msg/chat/bubble
+// 排除主 TabBar（会话列表页的 cell 类名也含 msg，会误判）
 static BOOL looksLikeChatVC(UIViewController *vc) {
     NSString *name = NSStringFromClass([vc class]);
+    if ([name rangeOfString:@"TabBar" options:NSCaseInsensitiveSearch].location != NSNotFound) return NO;
     if ([name rangeOfString:@"chat" options:NSCaseInsensitiveSearch].location != NSNotFound) return YES;
     UIScrollView *sv = findChatScrollView(vc.view);
     if ([sv isKindOfClass:[UITableView class]]) {

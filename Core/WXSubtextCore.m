@@ -132,9 +132,22 @@ static const NSTimeInterval kChatEnterSuppress = 2.0; // 进聊天页 2 秒内�
         // 防抖：300ms 内以最新一条为准。
         // 只分析最新模式恒成立；分析所有消息模式下，进聊天页 2 秒内的初始布局风暴也只分析最新一条，避免历史消息洪水。
         NSString *snap = text;
+        __weak UIView *wAnchor = anchorView;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kOnlyLatestDebounce * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if ([self.lastIncoming[talker] isEqualToString:snap])
-                [self maybeAnalyze:text talker:talker anchorView:anchorView container:container force:NO];
+            if (![self.lastIncoming[talker] isEqualToString:snap]) return;
+            // 锚点有效性校验：cell 若已被复用给别的消息，放弃这次分析，避免卡片锚到错的消息下
+            UIView *anchor = wAnchor;
+            if (anchor) {
+                UIView *v = anchor;
+                while (v && ![v isKindOfClass:[UITableViewCell class]] && ![v isKindOfClass:[UICollectionViewCell class]])
+                    v = v.superview;
+                if (v) {
+                    NSString *cur = objc_getAssociatedObject(v, @"wxst_last");
+                    if (cur && ![cur isEqualToString:snap]) return;
+                }
+                if (!anchor.window) return;
+            }
+            [self maybeAnalyze:text talker:talker anchorView:anchorView container:container force:NO];
         });
     } else {
         [self maybeAnalyze:text talker:talker anchorView:anchorView container:container force:NO];
