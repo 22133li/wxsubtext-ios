@@ -23,17 +23,20 @@ static BOOL isFileMessageText(NSString *t);
 
 static BOOL isNoiseText(NSString *t) {
     if (!t.length || t.length > 500) return YES;
-    static NSRegularExpression *timeRe, *weekRe, *dateRe;
+    static NSRegularExpression *timeRe, *weekRe, *dateRe, *ampmRe;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        timeRe = [NSRegularExpression regularExpressionWithPattern:@"^\\d{1,2}:\\d{2}(:\\d{2})?$" options:0 error:nil];
-        weekRe = [NSRegularExpression regularExpressionWithPattern:@"^(星期[一二三四五六日天]|周[一二三四五六日天])\\s*\\d{1,2}:\\d{2}(:\\d{2})?$" options:0 error:nil];
+        // 冒号兼容半角 : 与全角 ：；\s 已含全角空格 U+3000
+        timeRe = [NSRegularExpression regularExpressionWithPattern:@"^\\d{1,2}[:：]\\d{2}([:：]\\d{2})?$" options:0 error:nil];
+        weekRe = [NSRegularExpression regularExpressionWithPattern:@"^(星期[一二三四五六日天]|周[一二三四五六日天])\\s*\\d{1,2}[:：]\\d{2}([:：]\\d{2})?$" options:0 error:nil];
         dateRe = [NSRegularExpression regularExpressionWithPattern:@"^\\d{1,2}月\\d{1,2}日" options:0 error:nil];
+        ampmRe = [NSRegularExpression regularExpressionWithPattern:@"^(上午|下午|早上|晚上|凌晨|中午)\\s*\\d{1,2}[:：]\\d{2}([:：]\\d{2})?$" options:0 error:nil];
     });
     NSRange r = NSMakeRange(0, t.length);
     if ([timeRe numberOfMatchesInString:t options:0 range:r]) return YES;
     if ([weekRe numberOfMatchesInString:t options:0 range:r]) return YES;
     if ([dateRe numberOfMatchesInString:t options:0 range:r]) return YES;
+    if ([ampmRe numberOfMatchesInString:t options:0 range:r]) return YES;
     if ([t containsString:@"撤回了一条消息"]) return YES;
     if ([t containsString:@"正在输入"]) return YES;
     // 通话记录类系统消息（居中显示的语音/视频通话记录）
