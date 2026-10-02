@@ -3,6 +3,7 @@
 #import "WXSubtextDesensitizer.h"
 #import "WXSubtextNetwork.h"
 #import "WXSubtextAnalysis.h"
+#import "../Hook/WXSubtextLog.h"
 #import "../UI/WXSubtextCardView.h"
 #import <objc/runtime.h>
 
